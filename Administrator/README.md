@@ -26,23 +26,29 @@ No CVEs and no exploits. Every step uses a misconfigured permission or a credent
 ```
 olivia ──GenericAll──▶ michael ──control edge──▶ benjamin ──FTP──▶ Backup.psafe3
                           │                                            │
-                     WinRM (user)                              crack master pw
+                       WinRM                                   crack master pw
                                                                        │
-Administrator ◀──Pass-the-Hash── NT hash ◀──DCSync── ethan ◀──stored creds
+                                     ethan ◀──GenericWrite──── emily ◀─┘
+                                       │     (targeted Kerberoast)  │
+                                    DCSync                    WinRM (user flag)
+                                       │
+Administrator ◀──Pass-the-Hash── NT hash
 ```
 
 1. **olivia → michael:** GenericAll over michael lets olivia force-reset his password with `bloodyAD`.
-2. **michael → user flag:** michael is in *Remote Management Users*, which gives a WinRM shell.
+2. **michael → WinRM:** michael is in *Remote Management Users*, so he gets a shell, but no flag.
 3. **michael → benjamin:** an outbound control edge leads to benjamin, who has FTP access.
 4. **benjamin → Backup.psafe3:** a Password Safe v3 database pulled off FTP in binary mode.
-5. **Crack the safe:** `pwsafe2john` + `hashcat -m 5200` opens the safe, which holds ethan's credentials.
-6. **ethan → root:** ethan has replication rights, so `secretsdump` dumps the Administrator NT hash and pass-the-hash gives the root flag.
+5. **Crack the safe:** `pwsafe2john` + `hashcat -m 5200` opens it. It has entries for alexander, emily and emma, and only emily's works.
+6. **emily → user flag:** emily is in *Remote Management Users*, and `user.txt` is on her desktop.
+7. **emily → ethan:** GenericWrite over ethan allows a targeted Kerberoast, and his TGS cracks with `hashcat -m 13100`.
+8. **ethan → root:** ethan has replication rights, so `secretsdump` dumps the Administrator NT hash and pass-the-hash gives the root flag.
 
 ## Techniques
 
-`Active Directory` · `BloodHound` · `ACL abuse` · `GenericAll` · `ForceChangePassword` · `WinRM` · `FTP` · `Password Safe cracking` · `DCSync` · `Pass-the-Hash`
+`Active Directory` · `BloodHound` · `ACL abuse` · `GenericAll` · `ForceChangePassword` · `WinRM` · `FTP` · `Password Safe cracking` · `GenericWrite` · `Targeted Kerberoast` · `DCSync` · `Pass-the-Hash`
 
-**Tools:** NetExec, BloodHound CE, bloodyAD, evil-winrm, pwsafe2john, hashcat, impacket-secretsdump
+**Tools:** NetExec, BloodHound CE, bloodyAD, evil-winrm, pwsafe2john, hashcat, targetedKerberoast, impacket-secretsdump
 
 ## Writeup
 

