@@ -46,6 +46,6 @@ Administrator ◀──Pass-the-Hash── NT hash ◀──DCSync── ethan �
 
 ## Writeup
 
-📄 **[Full writeup → Administrator.html](./Administrator.html)**
+📄 **[Read the full writeup](https://h3ndr1x1.github.io/HTB-writeups/Administrator/Administrator.html)** (rendered page) · [HTML source](./Administrator.html)
 
 > Credentials and hashes in the writeup are partially redacted. Flags are not included.

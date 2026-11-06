@@ -2,11 +2,13 @@
 
 Writeups for [HackTheBox](https://www.hackthebox.com) machines I've rooted. Each one covers enumeration, the foothold, privilege escalation and what I learned along the way.
 
+🌐 **Read them on the web: [h3ndr1x1.github.io/HTB-writeups](https://h3ndr1x1.github.io/HTB-writeups/)**
+
 ## Machines
 
 | Machine | OS | Difficulty | Key techniques | Writeup |
 |---|---|---|---|---|
-| [Administrator](./Administrator) | Windows | Medium | AD ACL abuse, Password Safe cracking, DCSync, Pass-the-Hash | [View](./Administrator/Administrator.html) |
+| [Administrator](./Administrator) | Windows | Medium | AD ACL abuse, Password Safe cracking, DCSync, Pass-the-Hash | [Read](https://h3ndr1x1.github.io/HTB-writeups/Administrator/Administrator.html) |
 
 ## Rules I follow
 
